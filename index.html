@@ -16,6 +16,9 @@ main{padding:14px;max-width:560px;margin:auto}.bar{height:10px;background:rgba(2
 .opt.ok{background:#06d6a0;color:#fff;animation:bump .4s}.opt.no{background:#ef476f;color:#fff;animation:shake .4s}.opt:disabled{opacity:1}
 @keyframes bump{50%{transform:scale(1.04)}}@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
 .fact{background:rgba(255,255,255,.12);border-radius:14px;padding:12px;margin-top:8px;animation:pop .3s}.next{width:100%;height:56px;border-radius:14px;border:0;background:#ffd166;color:#0b1d3a;font-size:18px;font-weight:800;margin-top:12px}
+.rand{display:block;width:100%;min-height:64px;margin-top:14px;border:0;border-radius:16px;background:#ffd166;color:#0b1d3a;font-size:18px;font-weight:800;padding:12px 16px;box-shadow:0 6px 18px rgba(0,0,0,.25);text-align:center}
+.rand small{display:block;font-weight:600;font-size:13px;margin-top:4px;opacity:.75}
+.rand:active{transform:scale(.98)}
 .row{display:flex;justify-content:space-between;font-size:14px;opacity:.9}.streak{color:#ffd166;font-weight:800}
 .center{text-align:center;padding-top:30px}.conf{position:fixed;top:-10px;width:10px;height:14px;animation:fall linear forwards;z-index:50}@keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#06d6a0;padding:12px 18px;border-radius:14px;font-weight:700;animation:pop .3s;z-index:40}
@@ -24,6 +27,10 @@ main{padding:14px;max-width:560px;margin:auto}.bar{height:10px;background:rgba(2
 <script src="data.js"></script><script>
 const CONT=[["Africa","🦁","#e76f51"],["Asia","🏯","#d62828"],["Europe","🏰","#3a86ff"],["North America","🗽","#8338ec"],["South America","🦜","#2a9d8f"],["Oceania","🐨","#f4a261"],["Antarctica","🐧","#5e81ac"]];
 const PASS=0.8,KEY='geoTriviaV1';let S=JSON.parse(localStorage.getItem(KEY)||'{"done":{},"sound":true,"best":0}');
+if(!S||typeof S!=='object')S={done:{},sound:true,best:0};
+if(!S.done||typeof S.done!=='object')S.done={};
+if(typeof S.best!=='number'||!isFinite(S.best))S.best=0;
+if(typeof S.sound!=='boolean')S.sound=true;
 const save=()=>localStorage.setItem(KEY,JSON.stringify(S));const app=document.getElementById('app');const $t=document.getElementById('title');
 const sh=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
 let AC;function beep(ok){if(!S.sound)return;try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.connect(g);g.connect(AC.destination);
@@ -31,17 +38,24 @@ let AC;function beep(ok){if(!S.sound)return;try{AC=AC||new (window.AudioContext|
 const snd=document.getElementById('snd');const ss=()=>snd.textContent=S.sound?'🔊':'🔇';ss();snd.onclick=()=>{S.sound=!S.sound;save();ss()};
 let stack=[];document.getElementById('back').onclick=()=>{stack.pop();(stack.pop()||home)()};
 const go=f=>{stack.push(f);f()};const inC=c=>GEO.filter(x=>x.cont==c);const nDone=l=>l.filter(x=>S.done[x.id]).length;
+function toast(msg){document.querySelectorAll('.toast').forEach(el=>el.remove());const d=document.createElement('div');d.className='toast';d.textContent=msg;document.body.appendChild(d);setTimeout(()=>d.remove(),2600)}
+function pickRandom(list){const locked=list.filter(x=>!S.done[x.id]);const pool=locked.length?locked:list;return {c:pool[Math.floor(Math.random()*pool.length)],replay:!locked.length}}
+function launchRandom(list){if(!list||!list.length)return;const pick=pickRandom(list);if(pick.replay)toast('All unlocked. Replaying '+pick.c.name+'.');go(()=>quiz(pick.c.id))}
 function home(){stack=[home];$t.textContent='🌍 Globe Unlocked';const d=nDone(GEO);
  if(d==GEO.length)return win();
  app.innerHTML=`<div class="row"><span>Countries unlocked</span><span>${Math.round(d/GEO.length*100)}%</span></div><div class="big" id="overall">${d} / ${GEO.length}</div><div class="bar"><i style="width:${d/GEO.length*100}%"></i></div>
+ <button type="button" class="rand" id="rand-world">🎲 Random Country (anywhere)<small>Quiz a country you have not unlocked yet</small></button>
  <div class="grid">${CONT.map(([n,e,col],i)=>{const l=inC(n),k=nDone(l);return `<button class="card" data-c="${n}" style="background:linear-gradient(140deg,${col},${col}aa);animation-delay:${i*50}ms"><span class="e">${e}</span><br>${n}${n=='Antarctica'?' ⭐':''}<small>${k}/${l.length} unlocked${k==l.length?' ✅':''}</small><div class="bar"><i style="width:${k/l.length*100}%"></i></div></button>`}).join('')}</div>
  <div class="center"><button class="link" id="reset">Reset progress</button></div>`;
  app.querySelectorAll('.card').forEach(b=>b.onclick=()=>go(()=>continent(b.dataset.c)));
+ document.getElementById('rand-world').onclick=()=>launchRandom(GEO);
  document.getElementById('reset').onclick=()=>{if(confirm('Reset all progress?')){S.done={};save();home()}}}
 function continent(c){const l=inC(c).sort((a,b)=>a.name.localeCompare(b.name));$t.textContent=c;const k=nDone(l);
- app.innerHTML=`<div class="row"><span>${k}/${l.length} unlocked</span></div><div class="bar"><i style="width:${k/l.length*100}%"></i></div><div class="clist">${l.map((x,i)=>`<button class="cty ${S.done[x.id]?'done':''}" data-id="${x.id}" style="animation-delay:${Math.min(i*15,400)}ms">${x.id=='ATA'?`<div style="font-size:34px">🐧</div>`:`<img src="flags/${x.id.toLowerCase()}.svg" alt="" loading="lazy">`}${S.done[x.id]?'✅ ':'🔒 '}${x.name}</button>`).join('')}</div>`;
+ const sub=k<l.length?'Quiz a country still locked on this continent':'All unlocked here. Tap to replay one';
+ app.innerHTML=`<div class="row"><span>${k}/${l.length} unlocked</span></div><div class="bar"><i style="width:${k/l.length*100}%"></i></div><button type="button" class="rand" id="rand-cont">🎲 Random Country<small>${sub}</small></button><div class="clist">${l.map((x,i)=>`<button class="cty ${S.done[x.id]?'done':''}" data-id="${x.id}" style="animation-delay:${Math.min(i*15,400)}ms">${x.id=='ATA'?`<div style="font-size:34px">🐧</div>`:`<img src="flags/${x.id.toLowerCase()}.svg" alt="" loading="lazy">`}${S.done[x.id]?'✅ ':'🔒 '}${x.name}</button>`).join('')}</div>`;
+ document.getElementById('rand-cont').onclick=()=>launchRandom(l);
  app.querySelectorAll('.cty').forEach(b=>b.onclick=()=>go(()=>quiz(b.dataset.id)))}
-function quiz(id){const C=GEO.find(x=>x.id==id);$t.textContent=C.name;const qs=sh(C.q);let i=0,right=0,streak=0;
+function quiz(id){const C=GEO.find(x=>x.id==id);if(!C||!Array.isArray(C.q)||!C.q.length){toast('That country is not on this globe.');return home()}$t.textContent=C.name;const qs=sh(C.q);let i=0,right=0,streak=0;
  const show=()=>{const q=qs[i];app.innerHTML=`<div class="row"><span>Question ${i+1}/${qs.length}</span><span class="streak">${streak>1?'🔥 '+streak+' streak':''}</span></div><div class="bar"><i style="width:${i/qs.length*100}%"></i></div>
   ${q.flag?`<img class="flagq" src="flags/${q.flag}.svg" alt="flag">`:''}<div class="q">${q.q}</div>${sh(q.o).map(o=>`<button class="opt">${o}</button>`).join('')}<div id="fb"></div>`;
   app.querySelectorAll('.opt').forEach(b=>b.onclick=()=>{const ok=b.textContent==q.a;app.querySelectorAll('.opt').forEach(x=>{x.disabled=true;if(x.textContent==q.a)x.classList.add('ok')});
@@ -54,7 +68,8 @@ function quiz(id){const C=GEO.find(x=>x.id==id);$t.textContent=C.name;const qs=s
   document.getElementById('a').onclick=()=>{if(pass){stack.pop();continentOrWin(C.cont)}else quiz(id)}};show()}
 function continentOrWin(c){if(nDone(GEO)==GEO.length){stack=[home];win()}else{stack.pop();go(()=>continent(c))}}
 function confetti(n){for(let k=0;k<n;k++){const d=document.createElement('div');d.className='conf';d.style.left=Math.random()*100+'vw';d.style.background=`hsl(${Math.random()*360},90%,60%)`;d.style.animationDuration=1.5+Math.random()*2+'s';document.body.appendChild(d);setTimeout(()=>d.remove(),4000)}}
-function win(){$t.textContent='🏆 You did it!';confetti(150);app.innerHTML=`<div class="center" id="win"><div style="font-size:90px">🏆🌍</div><div class="big">World Conquered!</div><p>You unlocked all ${GEO.length} countries on every continent.</p><p>Best streak: 🔥 ${S.best}</p><button class="next" id="again">Play again (reset)</button></div>`;
+function win(){$t.textContent='🏆 You did it!';confetti(150);app.innerHTML=`<div class="center" id="win"><div style="font-size:90px">🏆🌍</div><div class="big">World Conquered!</div><p>You unlocked all ${GEO.length} countries on every continent.</p><p>Best streak: 🔥 ${S.best}</p><button type="button" class="rand" id="rand-world">🎲 Random Country (anywhere)<small>Everything is unlocked. Replay any country.</small></button><button class="next" id="again">Play again (reset)</button></div>`;
+ document.getElementById('rand-world').onclick=()=>launchRandom(GEO);
  document.getElementById('again').onclick=()=>{S.done={};save();home()}}
 home();
 </script></body></html>
